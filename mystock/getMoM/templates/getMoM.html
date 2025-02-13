@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block content %}
+<br/>
+<h1>營收獲利成長</h1>
+<br/>
+<h5><strong>判斷是否月營收年增率連續三個月大於0</strong></h5>
+<br/>
+<form method="POST" action="{% url 'getMoM' %}" class="row g-4">
+    {% csrf_token %}
+    <div class="col-auto">
+        <label class="visually-hidden">股票代號</label>
+        <input type="text" readonly class="form-control-plaintext" value="股票代號">
+    </div>
+    <div class="col-auto">
+        <label class="visually-hidden">輸入股票代號</label>
+        <input type="text" class="form-control" name="stockCodes" placeholder="例如:2330">
+    </div>
+    <div class="col-auto">
+        <button type="submit" class="btn btn-primary mb-3">搜尋</button>
+    </div>
+</form>
+
+<div>{{ result }}</div>
+
+{% if data %}
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>年度/月份</th>
+            <th>當月營收(仟元)</th>
+            <th>年增率</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in data %}
+        <tr>
+            <td>{{ row.0 }}</td>
+            <td>{{ row.1 }}</td>
+            <td>{{ row.2 }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p>目前無數據可顯示</p>
+{% endif %}
+
+{% endblock %}
