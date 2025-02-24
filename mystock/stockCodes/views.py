@@ -1,8 +1,8 @@
 from django.shortcuts import render
-import yfinance as yf
 import twstock
 import requests
-import redis
+from utils.redis_utils import get_redis_connection
+from django.core.cache import cache
 import json
 from templates.static.outputURL import BaseTWSE_URL # views.py上層stockCode與static/outputURL.py上層templates屬同一層
 from datetime import datetime
@@ -13,8 +13,6 @@ import io
 import base64
 from bs4 import BeautifulSoup
 import pandas as pd # rows列 columns行  (columns name, 即欄位名稱)
-
-r = redis.Redis(host='localhost', port=6379, db=0, decode_responses=True)
 
 # 盤後資訊>個股日成交資訊---繪圖---
 def DrawPlotSTOCK_DAY(data, stockNo):
@@ -52,6 +50,60 @@ def DrawPlotSTOCK_DAY(data, stockNo):
     img_64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
     return img_64
 
+# 盤後資訊>個股日成交資訊 stock_D_M
+def stock_D_M(stock_code):
+    date = datetime.now().strftime("%Y%m%d")  # 取得當前年月日
+    
+    stockNo = stock_code
+    print('取得當前年月日:',date,' stockNo:',stockNo)
+    url = f'https://www.twse.com.tw/rwd/zh/afterTrading/STOCK_DAY?date={date}&stockNo={stockNo}&response=html'
+    resp=requests.get(url)
+
+    # **讀取網頁數據，轉為 DataFrame**
+    data = pd.read_html(resp.text)[0]
+    data.columns = data.columns.droplevel(0) # 知道有哪些index(column name欄位名稱)
+    data = data[['日期', '收盤價']]  # 只保留所需欄位
+
+    # 假設 `data['日期']` 是 DataFrame 裡的日期欄位
+    data['日期'] = data['日期'].apply(convert_tw_date)
+    data['日期'] = pd.to_datetime(data['日期'], format="%Y/%m/%d")  # 轉換日期格式
+    data['收盤價'] = pd.to_numeric(data['收盤價'], errors='coerce')  # 轉換數字格式
+
+    img_base64 = DrawPlotSTOCK_DAY(data,stockNo)
+    return img_base64
+
+# 上市公司基本資料 stockInfo.py
+def stockInfo(stock_code):
+    date = datetime.now()
+    infomationURL = 'opendata/t187ap03_L' # 上市公司基本資料
+    URL = BaseTWSE_URL+infomationURL
+    datas = requests.get(URL).json()
+    for data in datas:
+        if data['公司代號']==stock_code:
+            return {
+            '公司簡稱' : data['公司簡稱'],
+            '公司名稱' : data['公司名稱'],
+            '公司代號' : data['公司代號'],
+            '電子郵件信箱' : data['電子郵件信箱'],
+            '網址' : data['網址'],
+            '發言人' : data['發言人'],
+            '產業別代碼' : data['產業別'],
+            '住址' : data['住址'],
+            '營利事業統一編號' : data['營利事業統一編號'],
+            '董事長' : data['董事長'],
+            '總經理' : data['總經理'],
+            '代理發言人' : data['代理發言人'],
+            '總機電話' : data['總機電話'],
+            '傳真機號碼' : data['傳真機號碼'],
+            '成立日期' : data['成立日期'],
+            '上市日期' : data['上市日期'],
+            '普通股每股面額' : data['普通股每股面額'],
+            '實收資本額' : data['實收資本額'],
+            '股票過戶機構' : data['股票過戶機構'],
+            '簽證會計師事務所' : data['簽證會計師事務所'],
+            '已發行普通股數或TDR原股發行股數' : data['已發行普通股數或TDR原股發行股數']
+            }                  
+
 # 轉換民國年(YYY/MM/DD)轉換為西元年(YYYY/MM/DD)
 def convert_tw_date(tw_date_str):
     parts = tw_date_str.split('/')
@@ -67,38 +119,17 @@ def stockCodes(request):
         if not stockCodes:
             msg = '請輸入股票代碼'
             return render(request, 'stockCodes.html', {'msg':msg})
-        # 盤後資訊>個股日成交資訊 stock_D_M
-        def stock_D_M(stock_code):
-            date = datetime.now().strftime("%Y%m%d")  # 取得當前年月日
-            
-            stockNo = stock_code
-            print('取得當前年月日:',date,' stockNo:',stockNo)
-            url = f'https://www.twse.com.tw/rwd/zh/afterTrading/STOCK_DAY?date={date}&stockNo={stockNo}&response=html'
-            resp=requests.get(url)
-
-            # **讀取網頁數據，轉為 DataFrame**
-            data = pd.read_html(resp.text)[0]
-            data.columns = data.columns.droplevel(0) # 知道有哪些index(column name欄位名稱)
-            data = data[['日期', '收盤價']]  # 只保留所需欄位
-
-            # 假設 `data['日期']` 是 DataFrame 裡的日期欄位
-            data['日期'] = data['日期'].apply(convert_tw_date)
-            data['日期'] = pd.to_datetime(data['日期'], format="%Y/%m/%d")  # 轉換日期格式
-            data['收盤價'] = pd.to_numeric(data['收盤價'], errors='coerce')  # 轉換數字格式
-
-            img_base64 = DrawPlotSTOCK_DAY(data,stockNo)
-            return img_base64
-
+        r = get_redis_connection()
         cache_key = f'stock_{stockCodes}'
-        cached_data = r.get(cache_key)
-
+        # 使用 Django Cache API 操作 Redis
+        cached_data = cache.get(cache_key)
         # 如果 redis有資料
         if cached_data:
             print("從 Redis 取得快取數據")
             catch_data = json.loads(cached_data)            
             return render(request,'stockCodes.html',catch_data)
 
-        print("從 爬蟲 取得數據")
+        print("從 爬蟲 取得數據") 
         # 判斷是否為台灣上市櫃股票(輸入代號查詢) 
         def getStockCodes(stock_code):
             if stock_code in twstock.codes[stockCodes]:                
@@ -109,77 +140,16 @@ def stockCodes(request):
                     '產業別':twstock.codes[stockCodes].group
                 }
             else:
-                return f'{stock_code}非台灣上市櫃股票代號'
-            
-        # 取得個股即時股價資訊
-        def realStock(stock_code):
-            ticker = stock_code+'.TW' # stock_code = getStockCodes(str(input('輸入股票代號:')))
-            # 建立實例   
-            stock = yf.Ticker(ticker)
-            # 使用 `history` 方法獲取最近一天的數據
-            data = stock.history(period="1d")
-            latest_price = data['Close'].iloc[-1]  # 最新成交價
-            open_price = data['Open'].iloc[-1] 
-            high_price = data['High'].iloc[-1]
-            low_price = data['Low'].iloc[-1]
-
-            stock = twstock.Stock(stock_code) # '3706' ['3706','2344']
-            twstock.realtime.mock = False # 透過 realtime.mock 來設定是否使用假資料。
-            res = twstock.realtime.get(stock_code) # twstock.realtime.get(['3706','2344'])
-            return {
-                '股票資訊取得時間': res['info']['time'], # 股票資訊取得時間 
-                '股票即時價': format(latest_price, '.1f') , # 可能是最新成交價, 2025/2/13發現res['realtime']['last_trade_price']跑不出值
-                '開盤價': format(open_price, '.1f'), 
-                '最高價': format(high_price, '.1f'), 
-                '最低價': format(low_price, '.1f')
-                }   
-            # realStock = res         
-
-        # 上市公司基本資料 stockInfo.py
-        def stockInfo(stock_code):
-            date = datetime.now()
-            infomationURL = 'opendata/t187ap03_L' # 上市公司基本資料
-            URL = BaseTWSE_URL+infomationURL
-            datas = requests.get(URL).json()
-            for data in datas:
-                if data['公司代號']==stock_code:
-                    return {
-                    '公司簡稱' : data['公司簡稱'],
-                    '公司名稱' : data['公司名稱'],
-                    '公司代號' : data['公司代號'],
-                    '電子郵件信箱' : data['電子郵件信箱'],
-                    '網址' : data['網址'],
-                    '發言人' : data['發言人'],
-                    '產業別代碼' : data['產業別'],
-                    '住址' : data['住址'],
-                    '營利事業統一編號' : data['營利事業統一編號'],
-                    '董事長' : data['董事長'],
-                    '總經理' : data['總經理'],
-                    '代理發言人' : data['代理發言人'],
-                    '總機電話' : data['總機電話'],
-                    '傳真機號碼' : data['傳真機號碼'],
-                    '成立日期' : data['成立日期'],
-                    '上市日期' : data['上市日期'],
-                    '普通股每股面額' : data['普通股每股面額'],
-                    '實收資本額' : data['實收資本額'],
-                    '股票過戶機構' : data['股票過戶機構'],
-                    '簽證會計師事務所' : data['簽證會計師事務所'],
-                    '已發行普通股數或TDR原股發行股數' : data['已發行普通股數或TDR原股發行股數']
-                    }
-                    # return stock_info_data
-        
-
-        real_stock_data = realStock(stockCodes)
+                return f'{stock_code}非台灣上市櫃股票代號'    
+        stock_code_data = getStockCodes(stockCodes)
         stock_info_data = stockInfo(stockCodes)
         stock_D_M_img = stock_D_M(stockCodes) # 獲取繪圖 Base64
 
         cached_data = {
-            'stock_code': getStockCodes(stockCodes),
+            'stock_code': stock_code_data,
             'stockInfo': stock_info_data ,
-            'realStock': real_stock_data,
             'stock_D_M_img': stock_D_M_img  # **存入 Base64 圖片**
             }
-        r.setex(cache_key, 300, json.dumps(cached_data)) # 1小時=3600s 5mins=300s
+        cache.set(cache_key,json.dumps(cached_data))
         return render(request,'stockCodes.html', cached_data)
     return render(request,'stockCodes.html', {})
-

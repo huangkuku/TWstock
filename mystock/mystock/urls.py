@@ -22,4 +22,6 @@ urlpatterns = [
     path('', include('home.urls')),
     path('', include('stockCodes.urls')),
     path('', include('getMoM.urls')),
+    path('', include('revenue_profit.urls')),
+    path('', include('bwibbu.urls')),
 ]

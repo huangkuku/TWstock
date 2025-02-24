@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    <h1>股價合理</h1>
+    <form method="POST", action="{% url 'bwibbu' %}" class="row g-4" id="stock-form">
+        {% csrf_token %}
+        <div class="col-auto">
+            <label for="stockCodeInput" class="visually-hidden">輸入股票代號</label>
+            <input type="text" class="form-control" name="stockCodes" id="stockCodeInput" placeholder="例如:2330">
+        </div>
+        <div class="col-auto">
+            <button type="submit" class="btn btn-primary mb-3" id="connectButton">搜尋</button>
+        </div>
+    </form>
+    {% if cached_data or msg %}
+        {{msg}}
+        <table class="table table-bordered">
+            <tbody>
+                {% for key, value in cached_data.items %}
+                    {% if forloop.counter0|divisibleby:2 %}
+                    <tr>
+                    {% endif %}
+                        <td><strong>{{ key }}</strong></td>
+                        <td>{{ value }}</td>
+                    {% if forloop.counter|divisibleby:2 or forloop.last %}
+                    </tr>
+                    {% endif %}
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+          <p>目前無數據可顯示</p>
+    {% endif %}
+
+{% endblock %}

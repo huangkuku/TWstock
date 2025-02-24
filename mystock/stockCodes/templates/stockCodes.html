@@ -1,76 +1,61 @@
 {% extends "base.html" %}
 
 {% block content %}
-<br/>
-<h3>公司基本資料和即時股票資訊(輸入代號查詢)</h3>
-<br/>
-<form method="POST" action="{% url 'stockCodes' %}" class="row g-4">
-    {% csrf_token %}
-       
-        <div class="col-auto">
-          <label for="stockCodeInput" class="visually-hidden">輸入股票代號</label>
-          <input type="text" class="form-control" name="stockCodes" id="stockCodeInput" placeholder="例如:2330">
-        </div>
-        <div class="col-auto">
-          <button type="submit" class="btn btn-primary mb-3">搜尋</button>
-        </div>
-</form>
-<br/>
-{% if stock_code and stockInfo %}
-  <!-- <h2>公司基本資料和即時股票資訊</h2> -->
-  <table class="table table-bordered">
-    <tbody>
-        {% for key, value in stock_code.items %}
-            {% if forloop.counter0|divisibleby:2 %}
-            <tr>
-            {% endif %}
-                <td><strong>{{ key }}</strong></td>
-                <td>{{ value }}</td>
-            {% if forloop.counter|divisibleby:2 or forloop.last %}
-            </tr>
-            {% endif %}
-        {% endfor %}
-    </tbody>
-</table>
-  {% if realStock %}
+  <br/>
+  <h3>公司基本資料和即時股票資訊(輸入代號查詢)</h3>
+  <br/>
+  <form method="POST" action="{% url 'stockCodes' %}" class="row g-4" id="stock-form">
+      {% csrf_token %}
+        
+          <div class="col-auto">
+            <label for="stockCodeInput" class="visually-hidden">輸入股票代號</label>
+            <input type="text" class="form-control" name="stockCodes" id="stockCodeInput" placeholder="例如:2330">
+          </div>
+          <div class="col-auto">
+            <button type="submit" class="btn btn-primary mb-3" id="connectButton">搜尋</button>
+          </div>
+  </form>
+  <br/>
+  {% if stock_code and stockInfo %}
+    <!-- <h2>公司基本資料和當月收盤價走勢圖</h2> -->
     <table class="table table-bordered">
-        <tbody>
-            {% for key, value in realStock.items %}
-                {% if forloop.counter0|divisibleby:2 %}
-                <tr>
-                {% endif %}
-                    <td><strong>{{ key }}</strong></td>
-                    <td>{{ value }}</td>
-                {% if forloop.counter|divisibleby:2 or forloop.last %}
-                </tr>
-                {% endif %}
-            {% endfor %}
-        </tbody>
+      <tbody>
+          {% for key, value in stock_code.items %}
+              {% if forloop.counter0|divisibleby:2 %}
+              <tr>
+              {% endif %}
+                  <td><strong>{{ key }}</strong></td>
+                  <td>{{ value }}</td>
+              {% if forloop.counter|divisibleby:2 or forloop.last %}
+              </tr>
+              {% endif %}
+          {% endfor %}
+      </tbody>
     </table>
-{% endif %}
-  <!-- 每兩組為一列（用 forloop.counter 來控制） -->
-  <table class="table table-bordered table-striped">
-    <tbody>
-      {% for key, value in stockInfo.items %}
-        {% if forloop.counter0|divisibleby:2 %}
-          <tr>
-        {% endif %}
-            <td><strong>{{ key }}</strong></td>
-            <td>{{ value }}</td>
-        {% if forloop.counter|divisibleby:2 or forloop.last %}
-          </tr>
-        {% endif %}
-      {% endfor %}
-    </tbody>
-  </table>
-{% else %}
-  {{msg}}
-{% endif %}
-{% if stock_D_M_img %}
-  <img src="data:image/png;base64,{{ stock_D_M_img }}" class="my-5"alt="股價圖表">
-{% else %}
-    <p>尚無股價數據</p>
-    <div></div>
-{% endif %}
+    <!-- 每兩組為一列（用 forloop.counter 來控制） -->
+    <table class="table table-bordered table-striped">
+      <tbody>
+        {% for key, value in stockInfo.items %}
+          {% if forloop.counter0|divisibleby:2 %}
+            <tr>
+          {% endif %}
+              <td><strong>{{ key }}</strong></td>
+              <td>{{ value }}</td>
+          {% if forloop.counter|divisibleby:2 or forloop.last %}
+            </tr>
+          {% endif %}
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    {{msg}}
+  {% endif %}
 
+  {% if stock_D_M_img %}
+    <img src="data:image/png;base64,{{ stock_D_M_img }}" class="my-5"alt="股價圖表">
+  {% else %}
+      <p>尚無股價數據</p>
+      <div></div>
+  {% endif %}
+  
 {% endblock %}
