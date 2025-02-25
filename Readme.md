@@ -35,7 +35,6 @@ TWstock 是一個模仿 Yahoo 股市財報和健檢的應用程式，旨在提�
 ## 使用技術
 - Django: 後端框架
 - Redis: 用於快取和訊息佇列
-- Celery: 異步任務佇列
 - Channels: 用於處理 WebSocket 和其他協定
 - Matplotlib: 繪圖庫
 - Pandas: 資料處理和分析
