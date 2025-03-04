@@ -21,7 +21,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('home.urls')),
     path('', include('stockCodes.urls')),
-    path('', include('getMoM.urls')),
-    path('', include('revenue_profit.urls')),
-    path('', include('bwibbu.urls')),
+    # path('', include('getMoM.urls')),
+    # path('', include('revenue_profit.urls')),
+    # path('', include('bwibbu.urls')),
 ]

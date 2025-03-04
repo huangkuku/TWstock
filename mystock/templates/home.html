@@ -1,14 +1,14 @@
 {% extends 'base.html' %}
 
 {% block content %}
-    <h1>股市健檢</h1>
+    <h1>股市盤後資料</h1>
     <div class="card border-light mb-3">
         {% load static %}
         <img src="{% static 'sitemap1.png' %}" class="card-img-top" alt="網站架構圖">
         <div class="card-body">            
-            <h5 class="card-title">仿照yahoo股市網站的健檢功能與財報功能。</h5>
+            <h5 class="card-title">盤後股票資料抓取分析</h5>
             <p class="card-text">
-                <small class="text-muted">說明: 目前僅提供臺灣股票上市公司基本資料、即時股價、健診-營收獲利成長:月營收年增率。</small>
+                <small class="text-muted">說明: 目前僅提供臺灣股票上市櫃公司 K 線圖以及 5MA、10MA、20MA 線圖。</small>
             </p>
             <p class="card-text">                
                     使用方法: 
@@ -17,7 +17,7 @@
                 進入<b>stockCodes</b>頁輸入股票代號，按下enter或搜尋，獲取該公司基本資料和盤後成交資訊走勢圖
             </p>
             <p class="card-text">                
-                選擇<b>個股健診>營收獲利成長</b>頁輸入股票代號，按下enter或搜尋，判斷是否月營收年增率連續三個月大於0
+                日後補上K 線圖的下方的成交量，以及三大法人的成交量。
             </p>
         </div>
       </div>

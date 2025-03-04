@@ -38,11 +38,11 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',    
     'stockCodes',
-    'getMoM',
     'home',
     'mystock',
-    'revenue_profit',
-    'bwibbu',
+    # 'getMoM',
+    # 'revenue_profit',
+    # 'bwibbu',
 ]
 
 

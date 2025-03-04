@@ -9,7 +9,10 @@ from datetime import datetime
 import matplotlib
 matplotlib.use('Agg')  # 不使用 GUI 介面
 import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
+from matplotlib.font_manager import FontProperties
 import io
+import yfinance as yf
 import base64
 from bs4 import BeautifulSoup
 import pandas as pd # rows列 columns行  (columns name, 即欄位名稱)
@@ -52,7 +55,7 @@ def DrawPlotSTOCK_DAY(data, stockNo):
 
 # 盤後資訊>個股日成交資訊 stock_D_M
 def stock_D_M(stock_code):
-    date = datetime.now().strftime("%Y%m%d")  # 取得當前年月日
+    date = datetime.datetime.now().strftime("%Y%m%d")  # 取得當前年月日
     
     stockNo = stock_code
     print('取得當前年月日:',date,' stockNo:',stockNo)
@@ -72,45 +75,76 @@ def stock_D_M(stock_code):
     img_base64 = DrawPlotSTOCK_DAY(data,stockNo)
     return img_base64
 
-# 上市公司基本資料 stockInfo.py
-def stockInfo(stock_code):
-    date = datetime.now()
-    infomationURL = 'opendata/t187ap03_L' # 上市公司基本資料
-    URL = BaseTWSE_URL+infomationURL
-    datas = requests.get(URL).json()
-    for data in datas:
-        if data['公司代號']==stock_code:
-            return {
-            '公司簡稱' : data['公司簡稱'],
-            '公司名稱' : data['公司名稱'],
-            '公司代號' : data['公司代號'],
-            '電子郵件信箱' : data['電子郵件信箱'],
-            '網址' : data['網址'],
-            '發言人' : data['發言人'],
-            '產業別代碼' : data['產業別'],
-            '住址' : data['住址'],
-            '營利事業統一編號' : data['營利事業統一編號'],
-            '董事長' : data['董事長'],
-            '總經理' : data['總經理'],
-            '代理發言人' : data['代理發言人'],
-            '總機電話' : data['總機電話'],
-            '傳真機號碼' : data['傳真機號碼'],
-            '成立日期' : data['成立日期'],
-            '上市日期' : data['上市日期'],
-            '普通股每股面額' : data['普通股每股面額'],
-            '實收資本額' : data['實收資本額'],
-            '股票過戶機構' : data['股票過戶機構'],
-            '簽證會計師事務所' : data['簽證會計師事務所'],
-            '已發行普通股數或TDR原股發行股數' : data['已發行普通股數或TDR原股發行股數']
-            }                  
-
 # 轉換民國年(YYY/MM/DD)轉換為西元年(YYYY/MM/DD)
-def convert_tw_date(tw_date_str):
-    parts = tw_date_str.split('/')
-    if len(parts) == 3:
-        year = str(int(parts[0]) + 1911)  # 轉換民國年為西元年
-        return f"{year}/{parts[1]}/{parts[2]}"
-    return tw_date_str  # 如果格式不對，則原樣返回
+# def convert_tw_date(tw_date_str):
+#     parts = tw_date_str.split('/')
+#     if len(parts) == 3:
+#         year = str(int(parts[0]) + 1911)  # 轉換民國年為西元年
+#         return f"{year}/{parts[1]}/{parts[2]}"
+#     return tw_date_str  # 如果格式不對，則原樣返回
+
+# 取得k線圖 5MA 10MA 20MA 60MA kline.py
+def stock_day(stock_code):
+    # 設定中文字型
+    plt.rcParams['font.sans-serif'] = ['Microsoft JhengHei']  # 設定為支援中文的字型，例如微軟正黑體
+    plt.rcParams['axes.unicode_minus'] = False  # 解決負號顯示問題
+
+    # 使用 yfinance 獲取股價資料
+    stock = yf.Ticker(stock_code+".TW")
+    data = stock.history(period="90d")  # 獲取過去90天的資料
+
+    # 計算移動平均線
+    data['5MA'] = data['Close'].rolling(window=5).mean()
+    data['10MA'] = data['Close'].rolling(window=10).mean()
+    data['20MA'] = data['Close'].rolling(window=20).mean()
+    data['60MA'] = data['Close'].rolling(window=60).mean()
+
+    # 裁剪回最近31天資料
+    data = data.iloc[-31:]
+
+    # 將日期轉換為數值格式
+    date_nums = [mdates.date2num(date) for date in data.index]
+    formatted_dates = [date.strftime('%Y-%m-%d') for date in data.index]
+
+    # 繪製K線圖和5MA
+    plt.figure(figsize=(10, 6))
+
+    for i in range(len(data)):
+        Stock_date = date_nums[i]
+        Close_price = data['Close'].iloc[i]  # 收盤
+        Open_price = data['Open'].iloc[i]  # 開盤
+        High = data['High'].iloc[i]
+        Low = data['Low'].iloc[i]
+
+        color = 'green'
+        if Close_price > Open_price:  # 收盤>開盤 陽線 漲
+            color = 'red'
+
+        plt.bar(Stock_date, abs(Close_price - Open_price), bottom=min(Close_price, Open_price), width=0.5, color=color)
+        plt.bar(Stock_date, High - Low, bottom=Low, width=0.1, color=color)
+
+    # 繪製MA
+    plt.plot(date_nums, data['5MA'], color='orange', linestyle='-', label='5MA', zorder=3)
+    plt.plot(date_nums, data['10MA'], color='pink', linestyle='-', label='10MA', zorder=3)
+    plt.plot(date_nums, data['20MA'], color='blue', linestyle='--', label='20MA', zorder=3)
+    plt.plot(date_nums, data['60MA'], color='black', linestyle='-.', label='60MA', zorder=3)
+
+    # 設定 x 軸日期格式
+    plt.xticks(date_nums, formatted_dates, rotation=90)
+    plt.xlabel('日期', fontsize=10)
+    plt.ylabel('股價', fontsize=10)
+    plt.legend()  # 顯示圖例
+    plt.tight_layout()
+    # plt.show()
+    
+    # 將圖片存入byteio，轉成Base64  
+    buffer = io.BytesIO()
+    plt.savefig(buffer, format='png', bbox_inches='tight') # 解決圖片邊界問題bbox_inches='tight'
+    plt.close() # 關閉圖表
+    buffer.seek(0) # seek(0) start of stream (the default); offset should be zero or positive
+
+    img_64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
+    return img_64
 
 def stockCodes(request):    
     if request.method == 'POST':   # 如果請求/request 的方法(method)是 POST
@@ -121,6 +155,7 @@ def stockCodes(request):
             return render(request, 'stockCodes.html', {'msg':msg})
         r = get_redis_connection()
         cache_key = f'stock_{stockCodes}'
+
         # 使用 Django Cache API 操作 Redis
         cached_data = cache.get(cache_key)
         # 如果 redis有資料
@@ -142,13 +177,10 @@ def stockCodes(request):
             else:
                 return f'{stock_code}非台灣上市櫃股票代號'    
         stock_code_data = getStockCodes(stockCodes)
-        stock_info_data = stockInfo(stockCodes)
-        stock_D_M_img = stock_D_M(stockCodes) # 獲取繪圖 Base64
-
+        stock_after_day = stock_day(stockCodes)
         cached_data = {
             'stock_code': stock_code_data,
-            'stockInfo': stock_info_data ,
-            'stock_D_M_img': stock_D_M_img  # **存入 Base64 圖片**
+            'stock_after_day':stock_after_day
             }
         cache.set(cache_key,json.dumps(cached_data))
         return render(request,'stockCodes.html', cached_data)
