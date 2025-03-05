@@ -17,7 +17,6 @@
   </form>
   <br/>
   {% if stock_code %}
-    <!-- <h2>公司基本資料和當月收盤價走勢圖</h2> -->
     <table class="table table-bordered">
       <tbody>
           {% for key, value in stock_code.items %}
@@ -37,8 +36,8 @@
     {{msg}}
   {% endif %}
 
-  {% if stock_after_day %}
-    <img src="data:image/png;base64,{{ stock_after_day }}" class="my-5"alt="股價圖表">
+  {% if img_64 %}
+    <img src="data:image/png;base64,{{ img_64 }}" class="my-5"alt="股價圖表">
   {% else %}
       <p>尚無股價數據</p>
       <div></div>

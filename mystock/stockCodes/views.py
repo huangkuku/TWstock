@@ -17,6 +17,7 @@ import base64
 from bs4 import BeautifulSoup
 import pandas as pd # rows列 columns行  (columns name, 即欄位名稱)
 from .models import StockDay
+
 # 取得k線圖 5MA 10MA 20MA 60MA kline.py
 def stock_day(stock_code):
     # 設定中文字型
@@ -79,8 +80,49 @@ def stock_day(stock_code):
     buffer.seek(0) # seek(0) start of stream (the default); offset should be zero or positive
 
     img_64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
-    return img_64
+    # 存到資料庫
+    mydb, created=StockDay.objects.get_or_create(
+        stock_code = stock_code,  
+        defaults = {         
+        'img_64':img_64,
+        'data_json' : data.to_json(orient='split'),
+        'ma5' : data['5MA'].dropna().tolist(),
+        'ma10' : data['10MA'].dropna().tolist(),
+        'ma20' : data['20MA'].dropna().tolist(),
+        'ma60' : data['60MA'].dropna().tolist(),
+        'date_nums' : formatted_dates
+        } 
+    )
+    if not created:
+        mydb.img_64 = img_64,
+        mydb.data_json = data.to_json(orient='split'),
+        mydb.ma5 = data['5MA'].dropna().tolist(),
+        mydb.ma10 = data['10MA'].dropna().tolist(),
+        mydb.ma20 = data['20MA'].dropna().tolist(),
+        mydb.ma60 = data['60MA'].dropna().tolist(),
+        mydb.date_nums = formatted_dates
+        mydb.save()
+    return {
+        'img_64': img_64,
+        'data': data.to_json(orient='split'),
+        '5MA': data['5MA'].dropna().tolist(),
+        '10MA': data['10MA'].dropna().tolist(),
+        '20MA': data['20MA'].dropna().tolist(),
+        '60MA': data['60MA'].dropna().tolist(),
+        'date_nums': formatted_dates
+    }
 
+# 判斷是否為台灣上市櫃股票(輸入代號查詢) 
+def getStockCodes(stock_code):
+    if stock_code in twstock.codes:                
+        return {
+            '公司名稱':twstock.codes[stock_code].name,
+            '股票代號':twstock.codes[stock_code].code,
+            '市場別': twstock.codes[stock_code].market,
+            '產業別':twstock.codes[stock_code].group
+        }
+    else:
+        return f'{stock_code}非台灣上市櫃股票代號'    
 def stockCodes(request):    
     if request.method == 'POST':   # 如果請求/request 的方法(method)是 POST
         # do something in here
@@ -99,24 +141,43 @@ def stockCodes(request):
             catch_data = json.loads(cached_data)            
             return render(request,'stockCodes.html',catch_data)
 
-        print("從 爬蟲 取得數據") 
-        # 判斷是否為台灣上市櫃股票(輸入代號查詢) 
-        def getStockCodes(stock_code):
-            if stock_code in twstock.codes[stockCodes]:                
-                return {
-                    '公司名稱':twstock.codes[stockCodes].name,
-                    '股票代號':twstock.codes[stockCodes].code,
-                    '市場別': twstock.codes[stockCodes].market,
-                    '產業別':twstock.codes[stockCodes].group
-                }
-            else:
-                return f'{stock_code}非台灣上市櫃股票代號'    
-        stock_code_data = getStockCodes(stockCodes)
-        stock_after_day = stock_day(stockCodes)
-        cached_data = {
-            'stock_code': stock_code_data,
-            'stock_after_day':stock_after_day
+        # 如果 Redis 中沒有快取資料，則從資料庫搜尋
+        print("從 資料庫 取得數據")
+        try:
+            mydata = StockDay.objects.get(stock_code=stockCodes)
+            cached_data = {
+                # 'stock_code': {
+                #     '公司名稱': mydata.stock_code,  # 這裡可能需要修正
+                #     '股票代號': stockCodes,
+                #     '市場別': '上市/上櫃',  # 根據實際資料調整
+                #     '產業別': '產業類別'  # 根據實際資料調整
+                # },
+                'stock_code': stock_code_data,
+                'stock_after_day':{
+                    'img_64': mydata.img_64,
+                    'data': mydata.data_json,
+                    '5MA': mydata.ma5,
+                    '10MA': mydata.ma10,
+                    '20MA': mydata.ma20,
+                    '60MA': mydata.ma60,
+                    'date_nums': mydata.date_nums
+                },
+                'img_64': mydata.img_64
             }
-        cache.set(cache_key,json.dumps(cached_data))
-        return render(request,'stockCodes.html', cached_data)
+            # 將資料重新存儲到 Redis 中（設置 1 小時過期時間）
+            cache.set(cache_key,json.dumps(cached_data), timeout=3600) # 3600 s = 1 hour
+            return render(request,'stockCodes.html', cached_data)
+        except:
+            print("從 爬蟲 取得數據") 
+            stock_code_data = getStockCodes(stockCodes)
+            stock_after_day = stock_day(stockCodes)
+            img_64 = stock_after_day.get('img_64')
+
+            cached_data = {
+                'stock_code': stock_code_data,
+                'stock_after_day':stock_after_day,
+                'img_64':img_64
+                }
+            cache.set(cache_key,json.dumps(cached_data), timeout=3600) # 3600 s = 1 hour
+            return render(request,'stockCodes.html', cached_data)
     return render(request,'stockCodes.html', {})
