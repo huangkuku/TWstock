@@ -16,73 +16,7 @@ import yfinance as yf
 import base64
 from bs4 import BeautifulSoup
 import pandas as pd # rows列 columns行  (columns name, 即欄位名稱)
-
-# 盤後資訊>個股日成交資訊---繪圖---
-def DrawPlotSTOCK_DAY(data, stockNo):
-    # 接收 DataFrame 作為參數
-    # 將圖片轉換成 Base64 編碼的字串，方便在 Django 前端用 <img src="data:image/png;base64,..." />
-    '''
-    plt.figure(figsize=(x軸長度, y軸長度)) # 圖片大小
-    plt.xlabel('日期', fontsize=16)  # x軸標題 標題字體大小 設定16
-    plt.ylabel('股價', fontsize=16)  # y軸標題 標題字體大小
-    plt.title(f'{stockNo}股價', fontsize=18) # 圖片標題(上方)
-    '''    
-    plt.figure(figsize=(10.0, 5.0))
-    plt.xlabel('日期', fontsize=16)
-    plt.ylabel('股價', fontsize=16)
-    plt.title(f'{stockNo} 股價圖表', fontsize=18)
-    '''
-    plt.plot(data['日期'], data['收盤價'], color='red', markersize=16, marker='.') 
-        plt.plot(x軸 根據'日期', y軸 根據'收盤價' 紅色實現 標記大小為16 標記符號為'.')
-    plt.xticks(rotation=45) # x軸標題旋轉 45 度
-    plt.rcParams["font.sans-serif"] = 'Microsoft JhengHei' # 字體轉換成Microsoft JhengHei
-    plt.rcParams["axes.unicode_minus"] = False # 負號可正常顯示
-    plt.show() # 顯示圖片
-    '''
-    plt.plot(data['日期'], data['收盤價'], color='red', markersize=16, marker='.')
-    plt.xticks(rotation=45)
-    plt.rcParams["font.sans-serif"] = 'Microsoft JhengHei'
-    plt.rcParams["axes.unicode_minus"] = False # 允許負號顯示
-
-    # 將圖片存入byteio，轉成Base64  
-    buffer = io.BytesIO()
-    plt.savefig(buffer, format='png', bbox_inches='tight') # 解決圖片邊界問題bbox_inches='tight'
-    plt.close() # 關閉圖表
-    buffer.seek(0) # seek(0) start of stream (the default); offset should be zero or positive
-
-    img_64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
-    return img_64
-
-# 盤後資訊>個股日成交資訊 stock_D_M
-def stock_D_M(stock_code):
-    date = datetime.datetime.now().strftime("%Y%m%d")  # 取得當前年月日
-    
-    stockNo = stock_code
-    print('取得當前年月日:',date,' stockNo:',stockNo)
-    url = f'https://www.twse.com.tw/rwd/zh/afterTrading/STOCK_DAY?date={date}&stockNo={stockNo}&response=html'
-    resp=requests.get(url)
-
-    # **讀取網頁數據，轉為 DataFrame**
-    data = pd.read_html(resp.text)[0]
-    data.columns = data.columns.droplevel(0) # 知道有哪些index(column name欄位名稱)
-    data = data[['日期', '收盤價']]  # 只保留所需欄位
-
-    # 假設 `data['日期']` 是 DataFrame 裡的日期欄位
-    data['日期'] = data['日期'].apply(convert_tw_date)
-    data['日期'] = pd.to_datetime(data['日期'], format="%Y/%m/%d")  # 轉換日期格式
-    data['收盤價'] = pd.to_numeric(data['收盤價'], errors='coerce')  # 轉換數字格式
-
-    img_base64 = DrawPlotSTOCK_DAY(data,stockNo)
-    return img_base64
-
-# 轉換民國年(YYY/MM/DD)轉換為西元年(YYYY/MM/DD)
-# def convert_tw_date(tw_date_str):
-#     parts = tw_date_str.split('/')
-#     if len(parts) == 3:
-#         year = str(int(parts[0]) + 1911)  # 轉換民國年為西元年
-#         return f"{year}/{parts[1]}/{parts[2]}"
-#     return tw_date_str  # 如果格式不對，則原樣返回
-
+from .models import StockDay
 # 取得k線圖 5MA 10MA 20MA 60MA kline.py
 def stock_day(stock_code):
     # 設定中文字型
@@ -98,13 +32,14 @@ def stock_day(stock_code):
     data['10MA'] = data['Close'].rolling(window=10).mean()
     data['20MA'] = data['Close'].rolling(window=20).mean()
     data['60MA'] = data['Close'].rolling(window=60).mean()
-
+    
     # 裁剪回最近31天資料
     data = data.iloc[-31:]
 
     # 將日期轉換為數值格式
-    date_nums = [mdates.date2num(date) for date in data.index]
+    date_nums = [mdates.date2num(date) for date in data.index] # list
     formatted_dates = [date.strftime('%Y-%m-%d') for date in data.index]
+
 
     # 繪製K線圖和5MA
     plt.figure(figsize=(10, 6))
