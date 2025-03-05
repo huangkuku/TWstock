@@ -45,7 +45,7 @@ TWstock 是一個呈現台灣股票K線圖、5MA、10MA、20MA、60MA的應用�
    2. 建立database: stocks
 2. docker運行redis
    1. ``` docker pull redis```
-   2. ``` docker run  --name redis -p 6379:6379 -d redis
+   2. ``` docker run  --name redis -p 6379:6379 -d redis```
 3. migrate database
    1. ``` python manage.py makemigrations```
    2. ``` python manage.py migrate```
